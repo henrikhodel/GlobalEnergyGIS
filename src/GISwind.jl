@@ -1,6 +1,6 @@
 windoptions() = Dict(
-    :gisregion => "Europe8",            # "Europe8", "Eurasia38", "Scand3"
-    :filenamesuffix => "",              # e.g. "_landx2" to save high land availability data as "GISdata_solar2018_Europe8_landx2.mat" 
+    :gisregion => "scand4",            # "Europe8", "Eurasia38", "Scand3"
+    :filenamesuffix => "",              # e.g. "_landx2" to save high land availability data as "GISdata_solar2018_Europe8_landx2.mat"
 
     :onshore_density => 5,              # about 30% of existing farms have at least 5 W/m2, will become more common
     :offshore_density => 8,             # varies a lot in existing parks (4-18 W/m2)
@@ -18,7 +18,7 @@ windoptions() = Dict(
     :protected_codes => [1,2,3,4,5,8],  # IUCN codes to be excluded as protected areas. See codes in table below.
 
     :scenarioyear => "ssp2_2050",       # default scenario and year for population and grid access datasets
-    :era_year => 2018,                  # which year of the ERA5 time series to use 
+    :era_year => 2018,                  # which year of the ERA5 time series to use
     :rescale_to_wind_atlas => true,     # rescale the ERA5 time series to fit annual wind speed averages from the Global Wind Atlas
 
     :res => 0.01,                       # resolution of auxiliary datasets [degrees per pixel]
@@ -29,40 +29,40 @@ windoptions() = Dict(
     :offshoreclasses_min => [3,6,7,8,9],    # lower bound on annual offshore wind speeds for class X
     :offshoreclasses_max => [6,7,8,9,99],   # upper bound on annual offshore wind speeds for class X
 
-    :downsample_masks => 1,     # set to 2 or higher to scale down mask sizes to avoid GPU errors in Makie plots for large regions 
+    :downsample_masks => 1,     # set to 2 or higher to scale down mask sizes to avoid GPU errors in Makie plots for large regions
     :classB_threshold => 0.001  # minimum share of pixels within distance_elec_access km that must have grid access
                                 # for a pixel to be considered for wind class B.
 )
     # Land types
-    #     0      'Water'                       
+    #     0      'Water'
     #     1      'Evergreen Needleleaf Forests'
-    #     2      'Evergreen Broadleaf Forests' 
+    #     2      'Evergreen Broadleaf Forests'
     #     3      'Deciduous Needleleaf Forests'
-    #     4      'Deciduous Broadleaf Forests' 
-    #     5      'Mixed Forests'               
-    #     6      'Closed Shrublands'           
-    #     7      'Open Shrublands'             
-    #     8      'Woody Savannas'              
-    #     9      'Savannas'                    
-    #    10      'Grasslands'                  
-    #    11      'Permanent Wetlands'          
-    #    12      'Croplands'                   
-    #    13      'Urban'                       
-    #    14      'Cropland/Natural'            
-    #    15      'Snow/Ice'                    
-    #    16      'Barren'                      
+    #     4      'Deciduous Broadleaf Forests'
+    #     5      'Mixed Forests'
+    #     6      'Closed Shrublands'
+    #     7      'Open Shrublands'
+    #     8      'Woody Savannas'
+    #     9      'Savannas'
+    #    10      'Grasslands'
+    #    11      'Permanent Wetlands'
+    #    12      'Croplands'
+    #    13      'Urban'
+    #    14      'Cropland/Natural'
+    #    15      'Snow/Ice'
+    #    16      'Barren'
 
     # Protected areas (IUCN codes from the WDPA)
-    #    1      'Ia'                'Strict Nature Reserve'          
-    #    2      'Ib'                'Wilderness Area'                
-    #    3      'II'                'National Park'                  
-    #    4      'III'               'Natural Monument'               
-    #    5      'IV'                'Habitat/Species Management'     
-    #    6      'V'                 'Protected Landscape/Seascape'   
+    #    1      'Ia'                'Strict Nature Reserve'
+    #    2      'Ib'                'Wilderness Area'
+    #    3      'II'                'National Park'
+    #    4      'III'               'Natural Monument'
+    #    5      'IV'                'Habitat/Species Management'
+    #    6      'V'                 'Protected Landscape/Seascape'
     #    7      'VI'                'Managed Resource Protected Area'
-    #    8      'Not Reported'      'Not Reported'                   
-    #    9      'Not Applicable'    'Not Applicable'                 
-    #    10     'Not Assigned'      'Not Assigned'                   
+    #    8      'Not Reported'      'Not Reported'
+    #    9      'Not Applicable'    'Not Applicable'
+    #    10     'Not Assigned'      'Not Assigned'
 
 mutable struct WindOptions
     gisregion               ::String
@@ -190,7 +190,7 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
         protected_area[protected .== i] .= true
     end
 
-    # Pixels with electricity access for onshore wind A 
+    # Pixels with electricity access for onshore wind A
     gridA = (gridaccess .> 0)
 
     # Pixels with electricity access for onshore wind B and offshore wind
@@ -238,12 +238,26 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
     return mask_onshoreA, mask_onshoreB, mask_offshore
 end
 
-# 0 - 29 m/s
+# 0 - 29 m/s for default GEGIS turbine, OBS first element in windparkcurve corresponds to 1m/s and last to 30m/s
+
 const windparkcurve = [
     0.0, 0.0014, 0.0071, 0.0229, 0.0545, 0.1067, 0.1831, 0.2850, 0.4085, 0.5434,
     0.6744, 0.7847, 0.8614, 0.9048, 0.9266, 0.9353, 0.9373, 0.9375, 0.9375, 0.9375,
     0.9375, 0.9375, 0.9375, 0.9311, 0.8683, 0.6416, 0.2948, 0.0688, 0.0063, 0.0
 ]
+
+#const windparkcurve = [ # 300SP turbine (eta_ext= 0.93, int_loss = 0.125, sigma = 1m/s)
+#    0, 0, 0.014904727, 0.050179057, 0.10151108, 0.17286358, 0.272061689, 0.403746343,
+#    0.572558477, 0.775639606, 0.906136925, 0.93, 0.93, 0.93, 0.93, 0.93, 0.93, 0.93, 0.93, 0.93,
+#    0.93, 0.93, 0.93, 0.93, 0.581891291, 0.141796304, 0, 0, 0, 0
+#]
+
+#const windparkcurve = [ # 200SP turbine (eta_ext= 0.93, int_loss = 0.125, sigma = 1m/s)
+#    0, 0, 0.00477629577745001, 0.0302318703742646, 0.0800448814605385, 0.152266619655791,
+#    0.25929536973779, 0.408092534083882, 0.605619515071419, 0.809368754935627, 0.917163682052237,
+#    0.93, 0.93, 0.93, 0.93,	0.93, 0.93,	0.93, 0.93,	0.93, 0.93,	0.93, 0.788203696061086, 0.348108708794626,
+#    0, 0, 0, 0,	0, 0
+#]
 
 function speed2capacityfactor(windspeed)
     if windspeed >= 29 || windspeed < 0
@@ -350,7 +364,7 @@ function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offsho
             meanwind[i,j] == 0 && continue
             wind = rescale_to_wind_atlas ? windspeed[:, i, j] : speed2capacityfactor.(windspeed[:, i, j])
             eralon = eralons[i]
-            # get all high resolution row and column indexes within this ERA5 cell         
+            # get all high resolution row and column indexes within this ERA5 cell
             rowrange = lonmap[lon2row(eralon-erares/2, res):lon2row(eralon+erares/2, res)-1]
 
             for c in colrange, r in rowrange
@@ -362,7 +376,7 @@ function calc_wind_vars(options, windatlas, meanwind, windspeed, regions, offsho
                 # @views is needed to make sure increment_windCF!() works with matrix
                 # slice. It's also faster since it avoids making copies.
                 # We divide by meanwind_allyears instead of meanwind in order to
-                # account for more and less windy years, while still rescaling 
+                # account for more and less windy years, while still rescaling
                 # hourly ERA5 wind speeds to match annual averages from the Global
                 # Wind Atlas.
                 if reg > 0 && reg != NOREGION
@@ -509,7 +523,7 @@ function calc_wind_map(options, windatlas, meanwind, windspeed, regions, offshor
             meanwind[i,j] == 0 && continue
             wind = rescale_to_wind_atlas ? windspeed[:, i, j] : speed2capacityfactor.(windspeed[:, i, j])
             eralon = eralons[i]
-            # get all high resolution row and column indexes within this ERA5 cell         
+            # get all high resolution row and column indexes within this ERA5 cell
             rowrange = lonmap[lon2row(eralon-erares/2, res):lon2row(eralon+erares/2, res)-1]
 
             for c in colrange, r in rowrange
@@ -519,7 +533,7 @@ function calc_wind_map(options, windatlas, meanwind, windspeed, regions, offshor
                 class = onshoreclass[r,c]
                 offreg = offshoreregions[r,c]
                 offclass = offshoreclass[r,c]
-                
+
                 # can't use elseif here, probably some overlap in the masks
                 # @views is needed to make sure increment_windCF!() works with matrix slices
                 # also faster since it avoids making copies
