@@ -1,5 +1,5 @@
 export rasterize_datasets, create_scenario_datasets, cleanup_datasets, makeprotected, savelandcover,
-        createGDP, creategridaccess, getpopulation, getwindatlas
+        createGDP, creategridaccess, getpopulation, getwindatlas, convert_windatlas3
 
 # cleanup options: :none, :limited, :all
 function rasterize_datasets(; cleanup=:all)
@@ -60,7 +60,7 @@ function rasterize_GADM()
     options = "-a UID -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
     # options = "-a UID -ot Int32 -tr 0.02 0.02 -te -180 -90 180 90 -co COMPRESS=LZW"
     @time rasterize(shapefile, outfile, split(options, ' '))
- 
+
     println("Creating .csv file for regional index and name lookup...")
     sql = "select uid,name_0,name_1,name_2 from gadm36"
     # sql = "select uid,id_0,name_0,id_1,name_1,id_2,name_2 from gadm36"
@@ -79,7 +79,7 @@ function rasterize_NUTS()
     options = "-a ROWID -ot Int16 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW -dialect SQlite"
     sql = "select ROWID+1 AS ROWID,* from $name"
     @time rasterize(shapefile, outfile, split(options, ' '), sql=sql)
- 
+
     println("Creating .csv file for regional index and name lookup...")
     outfile = in_datafolder("nutsfields.csv")
     sql = "select ROWID+1 AS ROWID,* from $name"
@@ -103,7 +103,7 @@ function read_nuts()
     println("Reading NUTS rasters...")
     nutsfields = readdlm(in_datafolder("nutsfields.csv"), ',', header=true)[1]
     imax = maximum(nutsfields[:,1])
-    subregionnames = nutsfields[:,3]    # indexes of NUTS regions are in order 1:2016, let's use that 
+    subregionnames = nutsfields[:,3]    # indexes of NUTS regions are in order 1:2016, let's use that
     nuts = readraster(in_datafolder("nuts.tif"))
     return nuts, subregionnames
 end
@@ -221,14 +221,14 @@ function savelandcover()
     println("Converting landcover dataset from TIFF to JLD...")
     landcover = readraster(in_datafolder("landcover.tif"))
     landtypes = [
-        "Water", "Evergreen Needleleaf Forests", "Evergreen Broadleaf Forests", "Deciduous Needleleaf Forests", "Deciduous Broadleaf Forests", 
+        "Water", "Evergreen Needleleaf Forests", "Evergreen Broadleaf Forests", "Deciduous Needleleaf Forests", "Deciduous Broadleaf Forests",
         "Mixed Forests", "Closed Shrublands", "Open Shrublands", "Woody Savannas", "Savannas", "Grasslands", "Permanent Wetlands",
         "Croplands", "Urban", "Cropland/Natural", "Snow/Ice", "Barren"
     ]
     landcolors = 1/255 * [
         190 247 255; 0 100 0; 77 167 86; 123 204 6; 104 229 104;
-        55 200 133; 216 118 118; 255 236 163; 182 231 140; 255 228 18; 255 192 107; 40 136 213; 
-        255 255 0; 255 0 0; 144 144 0; 255 218 209; 190 190 190; 
+        55 200 133; 216 118 118; 255 236 163; 182 231 140; 255 228 18; 255 192 107; 40 136 213;
+        255 255 0; 255 0 0; 144 144 0; 255 218 209; 190 190 190;
     ]
     println("Saving landcover dataset...")
     JLD.save(in_datafolder("landcover.jld"), "landcover", landcover, "landtypes", landtypes,
@@ -289,7 +289,7 @@ function createGDP(scen, year)
     pop, extent = readraster(in_datafolder("global_population_and_gdp", "p$(scennum)_$year.tif"), :getextent) # million people
     gdp = readraster(in_datafolder("global_population_and_gdp", "g$(scennum)_$year.tif"))    # billion USD(2005), PPP
 
-    # Convert to USD 2010 using US consumer price index (CPI-U). CPI-U 2005: 195.3, CPI-U 2010: 218.056 
+    # Convert to USD 2010 using US consumer price index (CPI-U). CPI-U 2005: 195.3, CPI-U 2010: 218.056
     # https://www.usinflationcalculator.com/inflation/consumer-price-index-and-annual-percent-changes-from-1913-to-2008/
     tempfile = tempname()
     gdp_per_capita = gdp./pop * 218.056/195.3 * 1000    # new unit: USD(2010)/person, PPP
@@ -334,7 +334,7 @@ function creategridaccess(scen, year)
 
     disk = diskfilterkernel(1/6/res)                        # filter radius = 1/6 degrees
     gridaccess = gridsplit(gdp .> 100_000, x -> imfilter(x, disk), Float32)
-    # gridaccess = Float32.(imfilter(gdp .> 100_000, disk))   # only "high" income cells included (100 kUSD/cell), cell size = 1x1 km          
+    # gridaccess = Float32.(imfilter(gdp .> 100_000, disk))   # only "high" income cells included (100 kUSD/cell), cell size = 1x1 km
     println("\nCompressing...")
     selfmap!(x -> ifelse(x<1e-6, 0, x), gridaccess)         # force small values to zero to reduce dataset size
     println("Saving high resolution grid access...")
@@ -355,17 +355,17 @@ function getwindatlas()
 end
 
 # Convert the Global Wind Atlas 3.0 dataset from 250 m to 1 km resolution.
-# This reduces file size from 13 GB to 1 GB. Interpolate using cubic splines. 
+# This reduces file size from 13 GB to 1 GB. Interpolate using cubic splines.
 # Also change its weird lon-lat extents to standard [-180,-90] - [180, 90].
 # Lanczos algorithm is supposedly very good at retaining detail while
 # reducing image size.
 function convert_windatlas3()
-    infile = in_datafolder("gwa3_250_wind-speed_100m.tif")
+    infile = in_datafolder("gwa3_250_wind-speed_150m.tif")
     gdalinfo_path() do gdalinfo
         run(`$gdalinfo $infile`)
     end
     println("\n")
-    outfile = in_datafolder("Global Wind Atlas v3 - 100m wind speed.tif")
+    outfile = in_datafolder("Global Wind Atlas v3 - 150m wind speed.tif")
     options = split("-r lanczos -te -180 -90 180 90 -tr 0.01 0.01", ' ')
     gdalwarp_path() do gdalwarp
         @time run(`$gdalwarp $options -co COMPRESS=LZW $infile $outfile`)
