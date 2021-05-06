@@ -397,7 +397,7 @@ uuid = "59287772-0a20-5a39-b81b-1366585eb4c0"
 version = "0.4.2"
 
 [[ForwardDiff]]
-deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "NaNMath", "Random", "SpecialFunctions", "StaticArrays"]
+deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "LinearAlgebra", "NaNMath", "Printf", "Random", "SpecialFunctions", "StaticArrays"]
 git-tree-sha1 = "c26b56e9b9f0687f7ca887f6b6ded03d269e0e35"
 uuid = "f6369f11-7733-5829-9624-2563aa707210"
 version = "0.10.15"
@@ -1030,7 +1030,7 @@ uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
 version = "1.0.10"
 
 [[PooledArrays]]
-deps = ["DataAPI"]
+deps = ["DataAPI", "Future"]
 git-tree-sha1 = "6bc8aafa79d5c31747d95051d263c72747c6dc09"
 uuid = "2dfb63ee-cc39-5dd5-95bd-886bf059d720"
 version = "1.0.0"

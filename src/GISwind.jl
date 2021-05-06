@@ -1,14 +1,14 @@
 windoptions() = Dict(
-    :gisregion => "scand4",            # "Europe8", "Eurasia38", "Scand3"
+    :gisregion => "Europe54",            # "Europe8", "Eurasia38", "Scand3"
     :filenamesuffix => "",              # e.g. "_landx2" to save high land availability data as "GISdata_solar2018_Europe8_landx2.mat"
 
     :onshore_density => 5,              # about 30% of existing farms have at least 5 W/m2, will become more common
     :offshore_density => 8,             # varies a lot in existing parks (4-18 W/m2)
                                         # For reference: 10D x 5D spacing of 3 MW turbines (with 1D = 100m) is approximately 6 MW/km2 = 6 W/m2
-    :area_onshore => .08,               # area available for onshore wind power after the masks have been applied
-    :area_offshore => .33,              # area available for offshore wind power after the masks have been applied
+    :area_onshore => 1,                 # area available for onshore wind power after the masks have been applied
+    :area_offshore => 1,                # area available for offshore wind power after the masks have been applied
 
-    :distance_elec_access => 150,       # max distance to grid [km] (for wind classes of category B and offshore)
+    :distance_elec_access => 1000,      # max distance to grid [km] (for wind classes of category B and offshore)
     :persons_per_km2 => 150,            # not too crowded, max X persons/km2
                                         # US census bureau requires 1000 ppl/mile^2 = 386 ppl/km2 for "urban" (half in Australia)
                                         # roughly half the people of the world live at density > 300 ppl/km2
@@ -30,7 +30,7 @@ windoptions() = Dict(
     :offshoreclasses_max => [6,7,8,9,99],   # upper bound on annual offshore wind speeds for class X
 
     :downsample_masks => 1,     # set to 2 or higher to scale down mask sizes to avoid GPU errors in Makie plots for large regions
-    :classB_threshold => 0.001  # minimum share of pixels within distance_elec_access km that must have grid access
+    :classB_threshold => 0.00001  # minimum share of pixels within distance_elec_access km that must have grid access
                                 # for a pixel to be considered for wind class B.
 )
     # Land types
@@ -246,11 +246,11 @@ end
 #    0.9375, 0.9375, 0.9375, 0.9311, 0.8683, 0.6416, 0.2948, 0.0688, 0.0063, 0.0
 #]
 
-const windparkcurve = [ # 300SP turbine (eta_ext= 0.93, int_loss = 0.125, sigma = 1m/s)
-    0, 0, 0.014904727, 0.050179057, 0.10151108, 0.17286358, 0.272061689, 0.403746343,
-    0.572558477, 0.775639606, 0.906136925, 0.93, 0.93, 0.93, 0.93, 0.93, 0.93, 0.93, 0.93, 0.93,
-    0.93, 0.93, 0.93, 0.93, 0.581891291, 0.141796304, 0, 0, 0, 0
-]
+#const windparkcurve = [ # 300SP turbine (eta_ext= 0.93, int_loss = 0.125, sigma = 1m/s)
+#    0, 0, 0.014904727, 0.050179057, 0.10151108, 0.17286358, 0.272061689, 0.403746343,
+#    0.572558477, 0.775639606, 0.906136925, 0.93, 0.93, 0.93, 0.93, 0.93, 0.93, 0.93, 0.93, 0.93,
+#    0.93, 0.93, 0.93, 0.93, 0.581891291, 0.141796304, 0, 0, 0, 0
+#]
 
 #const windparkcurve = [ # 200SP turbine (eta_ext= 0.93, int_loss = 0.125, sigma = 1m/s)
 #    0, 0, 0.00477629577745001, 0.0302318703742646, 0.0800448814605385, 0.152266619655791,
@@ -258,6 +258,16 @@ const windparkcurve = [ # 300SP turbine (eta_ext= 0.93, int_loss = 0.125, sigma 
 #    0.93, 0.93, 0.93, 0.93,	0.93, 0.93,	0.93, 0.93,	0.93, 0.93,	0.93, 0.788203696061086, 0.348108708794626,
 #    0, 0, 0, 0,	0, 0
 #]
+
+
+
+const windparkcurve = [ # 100SP turbine (eta_ext= 0.93, int_loss = 0.125, sigma = 1m/s)
+    0, 0, 0.0175959588579867, 0.068507108051616, 0.160089762921077, 0.304533239311583, 0.518590739475579,
+    0.765977419923168, 0.909556988777038, 0.93, 0.93, 0.93, 0.93, 0.93,
+    0.93, 0.93, 0.93, 0.93, 0.93, 0.93, 0.581891291205374, 0.141796303938914,
+    0,	0,	0,	0,	0,	0,	0,	0,	0
+]
+
 
 function speed2capacityfactor(windspeed)
     if windspeed >= 29 || windspeed < 0
