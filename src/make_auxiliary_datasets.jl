@@ -360,12 +360,12 @@ end
 # Lanczos algorithm is supposedly very good at retaining detail while
 # reducing image size.
 function convert_windatlas3()
-    infile = in_datafolder("gwa3_250_wind-speed_150m.tif")
+    infile = in_datafolder("gwa3_250_wind-speed_200m.tif")
     gdalinfo_path() do gdalinfo
         run(`$gdalinfo $infile`)
     end
     println("\n")
-    outfile = in_datafolder("Global Wind Atlas v3 - 150m wind speed.tif")
+    outfile = in_datafolder("Global Wind Atlas v3 - 200m wind speed.tif")
     options = split("-r lanczos -te -180 -90 180 90 -tr 0.01 0.01", ' ')
     gdalwarp_path() do gdalwarp
         @time run(`$gdalwarp $options -co COMPRESS=LZW $infile $outfile`)
