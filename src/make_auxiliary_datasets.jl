@@ -54,7 +54,7 @@ function cleanup_datasets(; cleanup=:all)
 end
 
 function rasterize_GADM()
-    println("\nRasterizing GADM shapefile for global administrative areas (2-10 minute run time)...")
+    println("\nRasterizing GADM shapefile for global administrative areas (1-10 minute run time)...")
     shapefile = in_datafolder("gadm36", "gadm36.shp")
     outfile = in_datafolder("gadm.tif")
     options = "-a UID -ot Int32 -tr 0.01 0.01 -te -180 -90 180 90 -co COMPRESS=LZW"
@@ -109,11 +109,11 @@ function read_nuts()
 end
 
 function rasterize_protected()
-    println("\nRasterizing three WDPA shapefiles for protected areas (total run time 10 minutes - 2 hours)...")
+    println("\nRasterizing three WDPA shapefiles for protected areas (total run time 6 minutes - 2 hours)...")
 
     for i = 0:2
         println("\nFile $(i+1)/3:")
-        shapefile = in_datafolder("WDPA", "WDPA-shapefile$i", "WDPA-shapefile-polygons.shp")
+        shapefile = in_datafolder("WDPA", "WDPA-shapefile_$i", "WDPA-shapefile-polygons.shp")
 
         println("Rasterizing...")
         gdal_rasterize_path() do gdal_rasterize
@@ -344,30 +344,89 @@ function creategridaccess(scen, year)
     # loop through countries, index all pixels into vector, sort by GDP, use electrification to assign grid access
 end
 
-function getwindatlas()
+function getwindatlas(altitude=100)
     # filename = in_datafolder("gwa3_250_wind-speed_100m.tif") # v3.0 (lon extent [-180.3, 180.3], strangely)
     # filename = in_datafolder("global_ws.tif") # v2.3 (lon extent [-180.3, 180.3], strangely)
     # filename = in_datafolder("Global Wind Atlas v1 - 100m wind speed.tif")   # v1.0
     # windatlas = readraster(filename, :extend_to_full_globe)[1]
-    filename = in_datafolder("Global Wind Atlas v3 - 100m wind speed.tif")   # v3.0
+    filename = in_datafolder("Global Wind Atlas v3 - $(altitude)m wind speed.tif")   # v3.0
     windatlas = readraster(filename)
     clamp!(windatlas, 0, 25)
 end
 
-# Convert the Global Wind Atlas 3.0 dataset from 250 m to 1 km resolution.
-# This reduces file size from 13 GB to 1 GB. Interpolate using cubic splines.
-# Also change its weird lon-lat extents to standard [-180,-90] - [180, 90].
-# Lanczos algorithm is supposedly very good at retaining detail while
-# reducing image size.
-function convert_windatlas3()
-    infile = in_datafolder("gwa3_250_wind-speed_200m.tif")
+# Convert the Global Wind Atlas 3.0 dataset from 250 m to 1 km resolution. This reduces file size
+# from 13 GB to 1 GB. Also change its weird lon-lat extents to standard [-180,-90] - [180, 90].
+# Interpolate using bilinear, which is a simple and robust choice for GIS applications that avoids
+# creating artifacts. See:
+# https://gis.stackexchange.com/questions/10931/what-is-lanczos-resampling-useful-for-in-a-spatial-context
+function downsample_windatlas3(altitude=100)
+    infile = in_datafolder("gwa3_250_wind-speed_$(altitude)m.tif")
     gdalinfo_path() do gdalinfo
         run(`$gdalinfo $infile`)
     end
     println("\n")
-    outfile = in_datafolder("Global Wind Atlas v3 - 200m wind speed.tif")
-    options = split("-r lanczos -te -180 -90 180 90 -tr 0.01 0.01", ' ')
+    outfile = in_datafolder("Global Wind Atlas v3 - $(altitude)m wind speed.tif")
+    options = split("-r bilinear -te -180 -90 180 90 -tr 0.01 0.01", ' ')
     gdalwarp_path() do gdalwarp
         @time run(`$gdalwarp $options -co COMPRESS=LZW $infile $outfile`)
     end
+end
+
+function ogrinfo(file, options=["-al", "-so"])
+    ogrinfo_path() do ogrinfo
+        @time run(`$ogrinfo $options $file`)
+    end
+end
+
+# GE.ogrinfo("D:/GISdata/Natura2000_end2019_Shapefile/Natura2000_end2019_epsg3035.shp")
+# GE.ogrinfo("D:/GISdata/Natura2000_end2019_Shapefile/Natura2000_end2019_epsg3035.shp", ["-dialect", "sqlite",  "-sql", "select sitecode, sitename, release_da, ms, sitetype, inspire_id from Natura2000_end2019_epsg3035 limit 10"])
+
+function rasterize_Natura2000()
+    shapefile = in_datafolder("Natura2000_end2019_Shapefile", "Natura2000_end2019_epsg3035.shp")
+    shapefile_proj = in_datafolder("Natura2000_end2019_Shapefile", "Natura2000_reprojected.shp")
+
+    # Couldn't figure out how to make gdal_rasterize reproject on the fly, so...
+    if !isfile(shapefile_proj)
+        println("Reprojecting shapefile to EPSG:4326...")
+        ogr2ogr_path() do ogr2ogr
+            @time run(`$ogr2ogr -t_srs epsg:4326 -lco ENCODING=UTF-8 $shapefile_proj $shapefile`)
+        end
+    end
+
+    println("Rasterizing...")
+    gdal_rasterize_path() do gdal_rasterize
+        outfile = in_datafolder("natura2000.tif")
+        isfile(outfile) && rm(outfile)
+        # https://sdi.eea.europa.eu/catalogue/copernicus9129929/api/records/e40ca403-b81a-4ecb-b484-cade980e9a2f
+        # SITETYPE contains "A", "B" or "C":
+        #   A: SPAs (Special Protection Areas - sites designated under the Birds Directive);
+        #   B: SCIs and SACs (Sites of Community Importance and Special Areas of Conservation - sites designated under the Habitats Directive);
+        #   C: where SPAs and SCIs/SACs boundaries are identical (sites designated under both directives).
+        sql = "select unicode(SITETYPE)-64 as CODE,* from Natura2000_reprojected"
+        @time run(`$gdal_rasterize -a CODE -ot Byte -tr 0.01 0.01 -te -32 28 34 70
+                -co COMPRESS=LZW -dialect sqlite -sql $sql $shapefile_proj $outfile`)
+    end
+    readraster(in_datafolder("natura2000.tif"))
+end
+
+function rasterize_MIUU()
+    shapefile = in_datafolder("MIUU vindkartering-100m-sweref99", "vindkartering 2011_100m.shp")
+    shapefile_proj = in_datafolder("MIUU vindkartering-100m-sweref99", "MIUU_reprojected.shp")
+
+    # Couldn't figure out how to make gdal_rasterize reproject on the fly, so...
+    if !isfile(shapefile_proj)
+        println("Reprojecting shapefile to EPSG:4326...")
+        ogr2ogr_path() do ogr2ogr
+            @time run(`$ogr2ogr -t_srs epsg:4326 -lco ENCODING=UTF-8 $shapefile_proj $shapefile`)
+        end
+    end
+
+    println("Rasterizing...")
+    gdal_rasterize_path() do gdal_rasterize
+        outfile = in_datafolder("miuu_windatlas.tif")
+        isfile(outfile) && rm(outfile)
+        @time run(`$gdal_rasterize -a Z -ot Float32 -tr 0.01 0.01 -te 10.65 55.07 24.17 69.07
+                -co COMPRESS=LZW $shapefile_proj $outfile`)
+    end
+    readraster(in_datafolder("miuu_windatlas.tif"))
 end
