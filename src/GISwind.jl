@@ -10,20 +10,20 @@ windoptions() = Dict(
     :area_onshore => 1,                 # area available for onshore wind power after the masks have been applied
     :area_offshore => 1,                # area available for offshore wind power after the masks have been applied
 
-    :distance_elec_access => 1000,      # max distance to grid [km] (for wind classes of category B and offshore)
+    :distance_elec_access => 250,       # max distance to grid [km] (for wind classes of category B and offshore)
     :persons_per_km2 => 150,            # not too crowded, max X persons/km2
                                         # US census bureau requires 1000 ppl/mile^2 = 386 ppl/km2 for "urban" (half in Australia)
                                         # roughly half the people of the world live at density > 300 ppl/km2
-    :max_depth => 40,                   # max depth for offshore wind [m]
+    :max_depth => 60,                   # max depth for offshore wind [m]
     :min_shore_distance => 5,           # minimum distance to shore for offshore wind [km]
     :exclude_landtypes => [0,11,13],    # exclude water, wetlands and urban areas. See codes in table below.
     :protected_codes => [1,2,3,4,5,8],  # IUCN codes to be excluded as protected areas. See codes in table below.
 
     :scenarioyear => "ssp2_2050",       # default scenario and year for population and grid access datasets
-    :era_year => 2018,                  # which year of the ERA5 time series to use
+    :era_year => 2012,                  # which year of the ERA5 time series to use
     :rescale_to_wind_atlas => true,     # rescale the ERA5 time series to fit annual wind speed averages from the Global Wind Atlas
-    :wind_speed_altitude => 100,        # (m) altitude of GWA wind speeds that determine hourly power output & potentials 
-    :wind_class_altitude => 100,        # (m) altitude of GWA wind speeds for selection of wind classes 
+    :wind_speed_altitude => 100,        # (m) altitude of GWA wind speeds that determine hourly power output & potentials
+    :wind_class_altitude => 100,        # (m) altitude of GWA wind speeds for selection of wind classes
 
     :res => 0.01,                       # resolution of auxiliary datasets [degrees per pixel]
     :erares => 0.28125,                 # resolution of ERA5 datasets [degrees per pixel]
@@ -34,7 +34,7 @@ windoptions() = Dict(
     :offshoreclasses_max => [6,7,8,9,99],   # upper bound on annual offshore wind speeds for class X
 
     :downsample_masks => 1,     # set to 2 or higher to scale down mask sizes to avoid GPU errors in Makie plots for large regions
-    :classB_threshold => 0.00001  # minimum share of pixels within distance_elec_access km that must have grid access
+    :classB_threshold => 0.05   # minimum share of pixels within distance_elec_access km that must have grid access
                                 # for a pixel to be considered for wind class B.
 )
     # Land types
@@ -204,18 +204,27 @@ function create_wind_masks(options, regions, offshoreregions, gridaccess, popden
     end
 
     # Pixels with electricity access for onshore wind A
-    gridA = (gridaccess .> 0)
+    #gridA = (gridaccess .> 0)
+    gridA = (gridaccess .>= 0)
 
     # Pixels with electricity access for onshore wind B and offshore wind
     km_per_degree = π*2*6371/360
     disk = diskfilterkernel(distance_elec_access/km_per_degree/res)
-    gridB = (imfilter(gridaccess, disk) .> max(1e-9, classB_threshold)) # avoid artifacts if classB_threshold == 0
+    #gridB = (imfilter(gridaccess, disk) .> max(1e-9, classB_threshold)) # avoid artifacts if classB_threshold == 0
+
+    # use the distance_elec_access as distance from shore instead (switched gridacces to regions in filter)
+    # gridB is now only used for offshore wind
+    gridB = (imfilter(regions .> 0, disk) .> max(1e-9, classB_threshold)) # avoid artifacts if classB_threshold == 0
 
     # println("MAKE SURE MASKS DON'T OVERLAP! (regions & offshoreregions, mask_*)")
 
     # all mask conditions
+    #mask_onshoreA = gridA .& (popdens .< persons_per_km2) .& goodland .& .!protected_area #original
     mask_onshoreA = gridA .& (popdens .< persons_per_km2) .& goodland .& .!protected_area
-    mask_onshoreB = (gridB .& .!gridA) .& (popdens .< persons_per_km2) .& goodland .& .!protected_area
+    # B mask is not used in the energy system model, but cannot have it empty.
+    # To avoid having to remove mask_onshoreB, I have simply put all proteced areas in it so that it does not overlap with mask A.
+    mask_onshoreB = gridA .& (popdens .< persons_per_km2) .& goodland .& protected_area
+    #mask_onshoreB = (gridB .& .!gridA) .& (popdens .< persons_per_km2) .& goodland .& .!protected_area #original
 
     # shoreline mask for offshore wind
     disk = diskfilterkernel(min_shore_distance/km_per_degree/res)
@@ -271,8 +280,6 @@ const windparkcurve = [ # 300SP turbine (eta_ext= 0.93, int_loss = 0.125, sigma 
 #    0.93, 0.93, 0.93, 0.93, 0.93, 0.93, 0.93, 0.93, 0.93, 0.93, 0.93, 0.788203696061086, 0.348108708794626,
 #    0, 0, 0, 0, 0, 0
 #]
-
-
 
 #const windparkcurve = [ # 100SP turbine (eta_ext= 0.93, int_loss = 0.125, sigma = 1m/s)
 #    0, 0, 0.0175959588579867, 0.068507108051616, 0.160089762921077, 0.304533239311583, 0.518590739475579,

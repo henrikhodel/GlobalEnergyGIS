@@ -17,8 +17,10 @@ get_dataset_info() = [
     "GWA200"       ("Global Wind Atlas", "Global Wind Atlas v3 - 200m wind speed.tif",
         "https://chalmersuniversity.box.com/shared/static/7ib2jdni6hu9uwe1hp1mqoeeyqtg5601.tif")
     "WDPA"         ("WDPA (protected areas):", "WDPA.zip",
-        "https://d1gam3xoknrgr2.cloudfront.net/current/WDPA_WDOECM_May2021_Public_feadb1b4f30799a6dc3ad0b16116d3530ec4a477898f4e10e097e2030e167128_shp.zip")
-        # "https://chalmersuniversity.box.com/shared/static/wn1kznvy7qh1issqcxdlsq64kgtkaayi.zip")
+        #"https://d1gam3xoknrgr2.cloudfront.net/current/WDPA_WDOECM_May2021_Public_feadb1b4f30799a6dc3ad0b16116d3530ec4a477898f4e10e097e2030e167128_shp.zip")
+        #"https://chalmersuniversity.box.com/shared/static/wn1kznvy7qh1issqcxdlsq64kgtkaayi.zip")
+        "https://chalmersuniversity.box.com/shared/static/8zhwt1hwwanrus2g2q5c3mvgu75bvk0s.zip")
+        #""C://Users/hodel/Downloads/WDPA_WDOECM_May2021_Public_feadb1b4f30799a6dc3ad0b16116d3530ec4a477898f4e10e097e2030e167128_shp.zip"")
     "GADM"         ("GADM (global administrative areas)", "gadm36.zip",
         "https://biogeo.ucdavis.edu/data/gadm3.6/gadm36_shp.zip")
     "NUTS"         ("NUTS (administrative areas in Europe)", "nuts-2016-01m.shp.zip",
